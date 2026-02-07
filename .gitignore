@@ -1,3 +1,8 @@
+# Environment & dependencies
+.env
+.env.*
+**/node_modules/
+
 # Miscellaneous
 *.class
 *.log
