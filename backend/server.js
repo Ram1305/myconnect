@@ -122,19 +122,29 @@ connectMongoDB();
 // Define PORT before using it
 const PORT = process.env.PORT || 1000;
 
+// Helper: Express app.use() expects a middleware function (Router). If a route module
+// exports an object (e.g. { router }) instead of the router directly, use .router.
+function useRoute(path, routeModule) {
+  const middleware = typeof routeModule === 'function' ? routeModule : (routeModule && routeModule.router);
+  if (typeof middleware !== 'function') {
+    throw new Error(`Route for ${path} must export an Express Router (function), got ${typeof routeModule}`);
+  }
+  app.use(path, middleware);
+}
+
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/users', require('./routes/users'));
-app.use('/api/admin', require('./routes/admin'));
-app.use('/api/chat', require('./routes/chat'));
-app.use('/api/mylist', require('./routes/mylist'));
-app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/events', require('./routes/events'));
-app.use('/api/blogs', require('./routes/blogs'));
-app.use('/api/vendor', require('./routes/vendor'));
-app.use('/api/whatsapp', require('./routes/whatsapp')); // WhatsApp webhook
-app.use('/api/gallery', require('./routes/gallery'));
-app.use('/api/temples', require('./routes/temples'));
+useRoute('/api/auth', require('./routes/auth'));
+useRoute('/api/users', require('./routes/users'));
+useRoute('/api/admin', require('./routes/admin'));
+useRoute('/api/chat', require('./routes/chat'));
+useRoute('/api/mylist', require('./routes/mylist'));
+useRoute('/api/notifications', require('./routes/notifications'));
+useRoute('/api/events', require('./routes/events'));
+useRoute('/api/blogs', require('./routes/blogs'));
+useRoute('/api/vendor', require('./routes/vendor'));
+useRoute('/api/whatsapp', require('./routes/whatsapp')); // WhatsApp webhook
+useRoute('/api/gallery', require('./routes/gallery'));
+useRoute('/api/temples', require('./routes/temples'));
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
