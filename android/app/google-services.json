@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "285803966525",
+    "project_id": "myconnect-56a88",
+    "storage_bucket": "myconnect-56a88.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:285803966525:android:fced5398ad4d00e95cfa54",
+        "android_client_info": {
+          "package_name": "com.octosoft.myconnect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCVGEa0m1TPsmpn1ruRxcqrINekXcqQZIM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
