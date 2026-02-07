@@ -122,29 +122,47 @@ connectMongoDB();
 // Define PORT before using it
 const PORT = process.env.PORT || 1000;
 
-// Helper: Express app.use() expects a middleware function (Router). If a route module
-// exports an object (e.g. { router }) instead of the router directly, use .router.
+// Helper: Express app.use() expects a middleware function (Router). Handles route modules
+// that export: router directly, { router }, or { default: router } (ESM interop).
 function useRoute(path, routeModule) {
-  const middleware = typeof routeModule === 'function' ? routeModule : (routeModule && routeModule.router);
+  let middleware;
+  if (typeof routeModule === 'function') {
+    middleware = routeModule;
+  } else if (routeModule && typeof routeModule.router === 'function') {
+    middleware = routeModule.router;
+  } else if (routeModule && typeof routeModule.default === 'function') {
+    middleware = routeModule.default;
+  }
   if (typeof middleware !== 'function') {
-    throw new Error(`Route for ${path} must export an Express Router (function), got ${typeof routeModule}`);
+    const got = routeModule === null ? 'null' : (routeModule === undefined ? 'undefined' : typeof routeModule);
+    throw new Error(`Route for ${path} must export an Express Router (function), got ${got}`);
   }
   app.use(path, middleware);
 }
 
-// Routes
-useRoute('/api/auth', require('./routes/auth'));
-useRoute('/api/users', require('./routes/users'));
-useRoute('/api/admin', require('./routes/admin'));
-useRoute('/api/chat', require('./routes/chat'));
-useRoute('/api/mylist', require('./routes/mylist'));
-useRoute('/api/notifications', require('./routes/notifications'));
-useRoute('/api/events', require('./routes/events'));
-useRoute('/api/blogs', require('./routes/blogs'));
-useRoute('/api/vendor', require('./routes/vendor'));
-useRoute('/api/whatsapp', require('./routes/whatsapp')); // WhatsApp webhook
-useRoute('/api/gallery', require('./routes/gallery'));
-useRoute('/api/temples', require('./routes/temples'));
+// Routes - each wrapped to log which route fails
+const routes = [
+  ['/api/auth', './routes/auth'],
+  ['/api/users', './routes/users'],
+  ['/api/admin', './routes/admin'],
+  ['/api/chat', './routes/chat'],
+  ['/api/mylist', './routes/mylist'],
+  ['/api/notifications', './routes/notifications'],
+  ['/api/events', './routes/events'],
+  ['/api/blogs', './routes/blogs'],
+  ['/api/vendor', './routes/vendor'],
+  ['/api/whatsapp', './routes/whatsapp'],
+  ['/api/gallery', './routes/gallery'],
+  ['/api/temples', './routes/temples'],
+];
+routes.forEach(([path, modulePath]) => {
+  try {
+    useRoute(path, require(modulePath));
+  } catch (err) {
+    console.error(`Failed to load route ${path} (${modulePath}):`, err.message);
+    throw err;
+  }
+});
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
