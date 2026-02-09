@@ -124,7 +124,7 @@ const PORT = process.env.PORT || 1000;
 
 // Helper: Express app.use() expects a middleware function (Router). Handles route modules
 // that export: router directly, { router }, or { default: router } (ESM interop).
-function useRoute(path, routeModule) {
+function useRoute(mountPath, routeModule) {
   let middleware;
   if (typeof routeModule === 'function') {
     middleware = routeModule;
@@ -135,9 +135,9 @@ function useRoute(path, routeModule) {
   }
   if (typeof middleware !== 'function') {
     const got = routeModule === null ? 'null' : (routeModule === undefined ? 'undefined' : typeof routeModule);
-    throw new Error(`Route for ${path} must export an Express Router (function), got ${got}`);
+    throw new Error(`Route for ${mountPath} must export an Express Router (function), got ${got}`);
   }
-  app.use(path, middleware);
+  app.use(mountPath, middleware);
 }
 
 // Routes - each wrapped to log which route fails
@@ -155,11 +155,13 @@ const routes = [
   ['/api/gallery', './routes/gallery'],
   ['/api/temples', './routes/temples'],
 ];
-routes.forEach(([path, modulePath]) => {
+routes.forEach(([mountPath, modulePath]) => {
   try {
-    useRoute(path, require(modulePath));
+    const resolvedPath = path.isAbsolute(modulePath) ? modulePath : path.join(__dirname, modulePath);
+    const routeModule = require(resolvedPath);
+    useRoute(mountPath, routeModule);
   } catch (err) {
-    console.error(`Failed to load route ${path} (${modulePath}):`, err.message);
+    console.error(`Failed to load route ${mountPath} (${modulePath}):`, err.message);
     throw err;
   }
 });
