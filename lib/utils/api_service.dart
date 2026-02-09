@@ -807,6 +807,118 @@ class ApiService {
     }
   }
 
+  // Super-admin: get pending/approved/rejected/cannot-login users for a specific admin
+  static Future<List<dynamic>> getAdminScopedUsers(String adminId, String status) async {
+    try {
+      String path = 'pending';
+      if (status == 'cannot-login') path = 'cannot-login';
+      else if (status == 'approved') path = 'approved';
+      else if (status == 'rejected') path = 'rejected';
+      final response = await http.get(
+        Uri.parse('$baseUrl/admin/admins/$adminId/$path'),
+        headers: await getHeaders(),
+      );
+      if (response.statusCode != 200) return [];
+      final data = jsonDecode(response.body);
+      return data is List ? data : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Get events with optional referralId filter (for super-admin viewing by admin)
+  static Future<List<dynamic>> getEventsWithReferralId(String? referralId) async {
+    try {
+      var uri = Uri.parse('$baseUrl/events');
+      if (referralId != null && referralId.isNotEmpty) {
+        uri = uri.replace(queryParameters: {'referralId': referralId});
+      }
+      final response = await http.get(uri, headers: await getHeaders());
+      final data = jsonDecode(response.body);
+      return data is List ? data : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Get blogs with optional referralId filter
+  static Future<List<dynamic>> getBlogsWithReferralId(String? referralId) async {
+    try {
+      var uri = Uri.parse('$baseUrl/blogs');
+      if (referralId != null && referralId.isNotEmpty) {
+        uri = uri.replace(queryParameters: {'referralId': referralId});
+      }
+      final response = await http.get(uri, headers: await getHeaders());
+      final data = jsonDecode(response.body);
+      return data is List ? data : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Get banners with optional referralId filter (vendor getbanner)
+  static Future<List<dynamic>> getBannersWithReferralId(String? referralId) async {
+    try {
+      var uri = Uri.parse('$baseUrl/vendor/getbanner');
+      if (referralId != null && referralId.isNotEmpty) {
+        uri = uri.replace(queryParameters: {'referralId': referralId});
+      }
+      final response = await http.get(uri, headers: await getHeaders(includeAuth: false));
+      final data = jsonDecode(response.body);
+      if (data['banners'] != null) return data['banners'] as List;
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Get gallery photos with optional referralId filter
+  static Future<List<dynamic>> getGalleryWithReferralId(String? referralId) async {
+    try {
+      var uri = Uri.parse('$baseUrl/gallery');
+      if (referralId != null && referralId.isNotEmpty) {
+        uri = uri.replace(queryParameters: {'referralId': referralId});
+      }
+      final response = await http.get(uri, headers: await getHeaders(includeAuth: false));
+      final data = jsonDecode(response.body);
+      if (data['photos'] != null) return data['photos'] as List;
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Get temples with optional referralId filter
+  static Future<List<dynamic>> getTemplesWithReferralId(String? referralId) async {
+    try {
+      var uri = Uri.parse('$baseUrl/temples');
+      if (referralId != null && referralId.isNotEmpty) {
+        uri = uri.replace(queryParameters: {'referralId': referralId});
+      }
+      final response = await http.get(uri, headers: await getHeaders(includeAuth: false));
+      final data = jsonDecode(response.body);
+      if (data['temples'] != null) return data['temples'] as List;
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // Get chats for an admin's users (super-admin only)
+  static Future<List<dynamic>> getAdminChats(String adminId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/admin/admins/$adminId/chats'),
+        headers: await getHeaders(),
+      );
+      if (response.statusCode != 200) return [];
+      final data = jsonDecode(response.body);
+      return data is List ? data : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
   // Super-admin: assign a user to an admin (set createdByAdmin)
   static Future<Map<String, dynamic>> assignUserToAdmin(String userId, String adminId) async {
     try {
@@ -814,6 +926,67 @@ class ApiService {
         Uri.parse('$baseUrl/admin/users/$userId/assign-admin'),
         headers: await getHeaders(),
         body: jsonEncode({'adminId': adminId}),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  // Super-admin: create admin (multipart: profilePhoto, username, emailId, mobileNumber, password)
+  static Future<Map<String, dynamic>> createAdmin(
+    Map<String, String> data,
+    String? profilePhotoPath,
+  ) async {
+    try {
+      final uri = Uri.parse('$baseUrl/admin/admins');
+      var request = http.MultipartRequest('POST', uri);
+      data.forEach((key, value) {
+        request.fields[key] = value;
+      });
+      if (profilePhotoPath != null && profilePhotoPath.isNotEmpty) {
+        final extension = profilePhotoPath.toLowerCase().split('.').last;
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'profilePhoto',
+            profilePhotoPath,
+            filename: 'admin_${DateTime.now().millisecondsSinceEpoch}.$extension',
+            contentType: http.MediaType(
+              'image',
+              extension == 'jpg' ? 'jpeg' : extension,
+            ),
+          ),
+        );
+      }
+      final headers = await getHeaders();
+      request.headers.addAll(headers);
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  // Super-admin: block admin
+  static Future<Map<String, dynamic>> blockAdmin(String adminId) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/admin/admins/$adminId/block'),
+        headers: await getHeaders(),
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+  // Super-admin: unblock admin
+  static Future<Map<String, dynamic>> unblockAdmin(String adminId) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/admin/admins/$adminId/unblock'),
+        headers: await getHeaders(),
       );
       return jsonDecode(response.body);
     } catch (e) {

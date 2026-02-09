@@ -75,7 +75,8 @@ router.post('/signup', upload.single('profilePhoto'), async (req, res) => {
       workingDetails,
       isAdmin,
       role,
-      createdByAdmin
+      createdByAdmin,
+      referralId: referralIdFromBody
     } = req.body;
 
     console.log('   username:', username);
@@ -223,6 +224,23 @@ router.post('/signup', upload.single('profilePhoto'), async (req, res) => {
       console.log('⚠️ [AUTH] No profile photo provided - user will have no profile image');
     }
 
+    // Resolve createdByAdmin and referredByReferralId from referralId if provided
+    let resolvedCreatedByAdmin = adminRequester ? adminRequester._id : null;
+    let referredByReferralId = null;
+    const referralIdTrimmed = referralIdFromBody ? String(referralIdFromBody).trim() : '';
+    if (referralIdTrimmed) {
+      const adminByReferral = await User.findOne({
+        role: 'admin',
+        referralId: referralIdTrimmed,
+        isBlocked: { $ne: true }
+      });
+      if (!adminByReferral) {
+        return res.status(400).json({ message: 'Invalid or inactive referral ID' });
+      }
+      resolvedCreatedByAdmin = adminByReferral._id;
+      referredByReferralId = referralIdTrimmed;
+    }
+
     const user = new User({
       username: username.trim(),
       mobileNumber: mobileNumber.trim(),
@@ -239,9 +257,10 @@ router.post('/signup', upload.single('profilePhoto'), async (req, res) => {
       profilePhoto: profilePhotoUrl,
       isAdmin: isAdmin === 'true' || isAdmin === true || role === 'admin' || role === 'super-admin',
       role: (adminRequester && (role === 'admin' || role === 'super-admin')) ? role : 'user',
-      createdByAdmin: adminRequester ? adminRequester._id : null,
-      // Auto-approve if created by admin or if user is admin
-      status: (adminRequester || isAdmin === 'true' || isAdmin === true) ? 'approved' : 'pending'
+      createdByAdmin: resolvedCreatedByAdmin,
+      referredByReferralId: referredByReferralId,
+      // Auto-approve if created by admin or if user is admin or referred by valid referralId
+      status: (adminRequester || resolvedCreatedByAdmin || isAdmin === 'true' || isAdmin === true) ? 'approved' : 'pending'
     });
 
     // Save user to database
@@ -345,6 +364,15 @@ router.post('/login', async (req, res) => {
     }
 
     console.log('✅ [AUTH] Login - User is approved');
+
+    // Blocked admin cannot login
+    if (user.role === 'admin' && user.isBlocked === true) {
+      console.log('❌ [AUTH] Login - Admin account is blocked');
+      return res.status(403).json({
+        message: 'Admin account is blocked. Please contact super administrator.',
+        error: 'ADMIN_BLOCKED'
+      });
+    }
 
     // Check if admin has allowed login (token should be null)
     // If token exists, user has already logged in and needs admin to allow again

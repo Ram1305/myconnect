@@ -19,10 +19,13 @@ const upload = multer({
   }
 });
 
-// Get all banners (public - all users can view)
+// Get all banners (optional referralId query for filtering)
 router.get('/getbanner', async (req, res) => {
   try {
-    const banners = await Banner.find({ isActive: true })
+    const { referralId: referralIdQuery } = req.query;
+    const query = { isActive: true };
+    if (referralIdQuery) query.referralId = referralIdQuery;
+    const banners = await Banner.find(query)
       .populate('createdBy', 'username')
       .sort({ order: 1, createdAt: -1 });
     
@@ -67,7 +70,8 @@ router.post('/addbanner', adminAuth, upload.single('image'), async (req, res) =>
       image: imageUrl,
       createdBy: req.user._id,
       isActive: true,
-      order: nextOrder
+      order: nextOrder,
+      referralId: req.user.referralId || null
     });
     
     await banner.save();

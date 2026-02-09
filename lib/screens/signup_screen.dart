@@ -15,7 +15,8 @@ import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   final bool adminCreated;
-  const SignupScreen({super.key, this.adminCreated = false});
+  final String? initialReferralId;
+  const SignupScreen({super.key, this.adminCreated = false, this.initialReferralId});
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -30,6 +31,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _usernameController = TextEditingController();
   final _mobileController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _referralIdController = TextEditingController();
   final _fatherNameController = TextEditingController();
   final _grandfatherNameController = TextEditingController();
   String? _selectedQualification;
@@ -70,6 +72,13 @@ class _SignupScreenState extends State<SignupScreen> {
         _passwordController.text.isNotEmpty;
   }
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialReferralId != null && widget.initialReferralId!.isNotEmpty) {
+      _referralIdController.text = widget.initialReferralId!;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -472,6 +481,16 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               obscureText: _obscurePassword,
               validator: (v) => v?.isEmpty ?? true ? 'Required' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _referralIdController,
+              decoration: InputDecoration(
+                labelText: 'Referral ID (Optional)',
+                hintText: 'e.g. MYCNCT1234567890',
+                hintStyle: TextStyle(color: widget.initialReferralId != null ? Theme.of(context).hintColor : null),
+              ),
+              readOnly: false,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -1043,6 +1062,10 @@ class _SignupScreenState extends State<SignupScreen> {
         'isAdmin': _isAdmin,
         'createdByAdmin': widget.adminCreated, // Pass admin created flag
       };
+      final referralIdTrimmed = _referralIdController.text.trim();
+      if (referralIdTrimmed.isNotEmpty) {
+        data['referralId'] = referralIdTrimmed;
+      }
       
       debugPrint('🔵 [SIGNUP] Registration data:');
       debugPrint('   Username: ${data['username']}');
@@ -1128,6 +1151,7 @@ class _SignupScreenState extends State<SignupScreen> {
     _usernameController.dispose();
     _mobileController.dispose();
     _passwordController.dispose();
+    _referralIdController.dispose();
     _fatherNameController.dispose();
     _grandfatherNameController.dispose();
     _companyNameController.dispose();

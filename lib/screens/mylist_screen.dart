@@ -798,10 +798,10 @@ class _MyListScreenState extends State<MyListScreen> {
 
       // Headers
       sheetObject.appendRow([
-        'Username',
-        'Father Name',
-        'Mobile Number',
-        'Status',
+        TextCellValue('Username'),
+        TextCellValue('Father Name'),
+        TextCellValue('Mobile Number'),
+        TextCellValue('Status'),
       ]);
 
       // Data
@@ -809,10 +809,10 @@ class _MyListScreenState extends State<MyListScreen> {
         final memberData = member['memberId'];
         final isActive = member['isActive'] ?? true;
         sheetObject.appendRow([
-          memberData['username'] ?? '',
-          memberData['fatherName'] ?? '',
-          memberData['mobileNumber'] ?? '',
-          isActive ? 'Active' : 'Inactive',
+          TextCellValue(memberData['username'] ?? ''),
+          TextCellValue(memberData['fatherName'] ?? ''),
+          TextCellValue(memberData['mobileNumber'] ?? ''),
+          TextCellValue(isActive ? 'Active' : 'Inactive'),
         ]);
       }
 

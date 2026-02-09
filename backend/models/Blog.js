@@ -49,6 +49,11 @@ const blogSchema = new mongoose.Schema({
   location: {
     type: String,
     default: null
+  },
+  referralId: {
+    type: String,
+    default: null,
+    trim: true
   }
 }, {
   timestamps: true

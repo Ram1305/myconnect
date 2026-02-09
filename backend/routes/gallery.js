@@ -18,10 +18,13 @@ const upload = multer({
   },
 });
 
-// GET /api/gallery - public list
+// GET /api/gallery - list (optional referralId query for filtering)
 router.get('/', async (req, res) => {
   try {
-    const photos = await Gallery.find()
+    const { referralId: referralIdQuery } = req.query;
+    const query = {};
+    if (referralIdQuery) query.referralId = referralIdQuery;
+    const photos = await Gallery.find(query)
       .sort({ createdAt: -1 })
       .select('-__v')
       .populate('createdBy', 'username');
@@ -50,6 +53,7 @@ router.post('/', adminAuth, upload.single('image'), async (req, res) => {
       image: req.file.path,
       title: req.body.title || '',
       createdBy: req.user?._id,
+      referralId: req.user?.referralId || null,
     });
 
     await photo.save();

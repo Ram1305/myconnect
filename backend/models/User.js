@@ -152,6 +152,21 @@ const userSchema = new mongoose.Schema({
     ref: 'User',
     default: null
   },
+  referralId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true
+  },
+  referredByReferralId: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  isBlocked: {
+    type: Boolean,
+    default: false
+  },
   token: {
     type: String,
     default: null,

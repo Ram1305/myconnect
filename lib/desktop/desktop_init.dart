@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:bitsdojo_window/bitsdojo_window.dart';
+
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -19,16 +19,6 @@ Future<void> initDesktop() async {
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
     await windowManager.focus();
-  });
-
-  // Initialize bitsdojo window
-  doWhenWindowReady(() {
-    final initialSize = Size(1280, 800);
-    appWindow.size = initialSize;
-    appWindow.minSize = Size(800, 600);
-    appWindow.alignment = Alignment.center;
-    appWindow.title = 'My Connect';
-    appWindow.show();
   });
 }
 

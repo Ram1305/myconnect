@@ -85,13 +85,102 @@ router.get('/rejected', adminAuth, async (req, res) => {
 
 // ----- Super-admin-only routes -----
 
+// Generate unique referralId (MYCNCT + 10 digits)
+async function generateReferralId() {
+  let referralId;
+  let exists = true;
+  while (exists) {
+    const suffix = Date.now().toString().slice(-6) + Math.floor(1000 + Math.random() * 9000);
+    referralId = 'MYCNCT' + suffix;
+    const found = await User.findOne({ referralId });
+    exists = !!found;
+  }
+  return referralId;
+}
+
+// Create admin (super-admin only)
+router.post('/admins', superAdminAuth, upload.single('profilePhoto'), async (req, res) => {
+  try {
+    const { username, emailId, mobileNumber, password } = req.body;
+    if (!username || !mobileNumber || !password) {
+      return res.status(400).json({ message: 'Username, mobile number and password are required' });
+    }
+    const existing = await User.findOne({ mobileNumber: mobileNumber.trim() });
+    if (existing) {
+      return res.status(400).json({ message: 'Mobile number already exists' });
+    }
+    const referralId = await generateReferralId();
+    let profilePhotoUrl = '';
+    if (req.file && req.file.path && String(req.file.path).startsWith('http')) {
+      profilePhotoUrl = req.file.path;
+    }
+    const adminUser = new User({
+      username: username.trim(),
+      mobileNumber: mobileNumber.trim(),
+      emailId: emailId ? emailId.trim() : null,
+      password,
+      latitude: 0,
+      longitude: 0,
+      fatherName: 'N/A',
+      grandfatherName: 'N/A',
+      currentAddress: { address: '', state: '', pincode: '', latitude: 0, longitude: 0 },
+      nativeAddress: { address: '', state: '', pincode: '', latitude: 0, longitude: 0 },
+      useSameAddress: false,
+      highestQualification: '',
+      workingDetails: { isWorking: false, isBusiness: false },
+      status: 'approved',
+      isAdmin: true,
+      role: 'admin',
+      profilePhoto: profilePhotoUrl,
+      referralId
+    });
+    await adminUser.save();
+    const created = await User.findById(adminUser._id).select('-password');
+    res.status(201).json({ message: 'Admin created', admin: created, referralId });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Block admin (super-admin only)
+router.put('/admins/:id/block', superAdminAuth, async (req, res) => {
+  try {
+    const target = await User.findById(req.params.id);
+    if (!target) return res.status(404).json({ message: 'User not found' });
+    if (target.role === 'super-admin') {
+      return res.status(403).json({ message: 'Cannot block super admin' });
+    }
+    if (target.role !== 'admin' && !target.isAdmin) {
+      return res.status(400).json({ message: 'User is not an admin' });
+    }
+    await User.findByIdAndUpdate(req.params.id, { isBlocked: true }, { new: true });
+    const updated = await User.findById(req.params.id).select('-password');
+    res.json({ message: 'Admin blocked', admin: updated });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Unblock admin (super-admin only)
+router.put('/admins/:id/unblock', superAdminAuth, async (req, res) => {
+  try {
+    const target = await User.findById(req.params.id);
+    if (!target) return res.status(404).json({ message: 'User not found' });
+    await User.findByIdAndUpdate(req.params.id, { isBlocked: false }, { new: true });
+    const updated = await User.findById(req.params.id).select('-password');
+    res.json({ message: 'Admin unblocked', admin: updated });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // List all admins (super-admin only)
 router.get('/admins', superAdminAuth, async (req, res) => {
   try {
     const admins = await User.find({
       $or: [{ role: 'admin' }, { role: 'super-admin' }, { isAdmin: true }]
     })
-      .select('username mobileNumber role isAdmin')
+      .select('username mobileNumber role isAdmin profilePhoto emailId referralId isBlocked')
       .sort({ username: 1 });
 
     const adminsWithCount = await Promise.all(
@@ -103,6 +192,10 @@ router.get('/admins', superAdminAuth, async (req, res) => {
           mobileNumber: admin.mobileNumber,
           role: admin.role,
           isAdmin: admin.isAdmin,
+          profilePhoto: admin.profilePhoto,
+          emailId: admin.emailId,
+          referralId: admin.referralId,
+          isBlocked: admin.isBlocked === true,
           relatedCount
         };
       })
@@ -128,6 +221,71 @@ router.get('/admins/:adminId/related', superAdminAuth, async (req, res) => {
     const users = await User.find({ createdByAdmin: adminId })
       .select('-password')
       .sort({ createdAt: -1 });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get pending users for a specific admin (super-admin only)
+router.get('/admins/:adminId/pending', superAdminAuth, async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const admin = await User.findOne({ _id: adminId, $or: [{ role: 'admin' }, { isAdmin: true }] });
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+    const users = await User.find({ status: 'pending', createdByAdmin: adminId, isAdmin: { $ne: true } })
+      .select('-password')
+      .sort({ createdAt: -1 });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get approved users for a specific admin (super-admin only)
+router.get('/admins/:adminId/approved', superAdminAuth, async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const admin = await User.findOne({ _id: adminId, $or: [{ role: 'admin' }, { isAdmin: true }] });
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+    const users = await User.find({ status: 'approved', createdByAdmin: adminId, isAdmin: { $ne: true } })
+      .select('-password')
+      .sort({ createdAt: -1 });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get rejected users for a specific admin (super-admin only)
+router.get('/admins/:adminId/rejected', superAdminAuth, async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const admin = await User.findOne({ _id: adminId, $or: [{ role: 'admin' }, { isAdmin: true }] });
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+    const users = await User.find({ status: 'rejected', createdByAdmin: adminId, isAdmin: { $ne: true } })
+      .select('-password')
+      .sort({ createdAt: -1 });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get cannot-login users for a specific admin (super-admin only)
+router.get('/admins/:adminId/cannot-login', superAdminAuth, async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const admin = await User.findOne({ _id: adminId, $or: [{ role: 'admin' }, { isAdmin: true }] });
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+    const users = await User.find({
+      status: 'approved',
+      createdByAdmin: adminId,
+      isAdmin: { $ne: true },
+      token: { $ne: null, $exists: true }
+    })
+      .select('-password')
+      .sort({ updatedAt: -1 });
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -268,6 +426,28 @@ router.get('/cannot-login', adminAuth, async (req, res) => {
     }).select('-password').sort({ updatedAt: -1 });
 
     res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Get chats for a specific admin's users (super-admin only): chats where at least one participant has createdByAdmin = adminId
+router.get('/admins/:adminId/chats', superAdminAuth, async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const admin = await User.findOne({ _id: adminId, $or: [{ role: 'admin' }, { isAdmin: true }] });
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+    const userIds = await User.find({ createdByAdmin: adminId }).distinct('_id');
+    if (userIds.length === 0) {
+      return res.json([]);
+    }
+    const chats = await Chat.find({
+      participants: { $in: userIds }
+    })
+      .populate('participants', 'username mobileNumber profilePhoto')
+      .sort({ lastMessageTime: -1 })
+      .limit(100);
+    res.json(chats);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

@@ -5,20 +5,30 @@ const User = require('../models/User');
 const { auth, adminAuth } = require('../middleware/auth');
 const { sendNotificationToMultiple } = require('../services/notificationService');
 
-// Get all events (public - all users can view)
+// Get all events (auth - filter by referralId for admin or optional query for super-admin)
 router.get('/', auth, async (req, res) => {
   try {
-    const { start, end } = req.query;
+    const { start, end, referralId: referralIdQuery } = req.query;
     
-    let query = {};
+    const query = {};
+    if (req.user.role === 'admin' && req.user.referralId) {
+      query.referralId = req.user.referralId;
+    } else if (referralIdQuery) {
+      query.referralId = referralIdQuery;
+    }
     if (start && end) {
-      query = {
+      const dateFilter = {
         $or: [
           { start: { $gte: new Date(start), $lte: new Date(end) } },
           { end: { $gte: new Date(start), $lte: new Date(end) } },
           { start: { $lte: new Date(start) }, end: { $gte: new Date(end) } }
         ]
       };
+      if (Object.keys(query).length > 0) {
+        query.$and = [dateFilter];
+      } else {
+        Object.assign(query, dateFilter);
+      }
     }
     
     const events = await Event.find(query)
@@ -74,7 +84,8 @@ router.post('/', adminAuth, async (req, res) => {
       end: endDate,
       color: color || '#6C63FF',
       allDay: allDay || false,
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      referralId: req.user.referralId || null
     });
     
     await event.save();

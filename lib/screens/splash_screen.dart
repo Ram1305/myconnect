@@ -23,6 +23,7 @@ import 'admin_banner_list_screen.dart';
 import 'gallery_screen.dart';
 import 'temple_list_screen.dart';
 import 'admin_list_view_screen.dart';
+import 'create_admin_screen.dart';
 import '../utils/theme.dart';
 import '../config/app_config.dart';
 import '../services/notification_service.dart';
@@ -523,7 +524,23 @@ class _AdminPanelState extends State<AdminPanel> {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         children: [
-                          if (isSuperAdmin)
+                          if (isSuperAdmin) ...[
+                            _buildCard(
+                              context,
+                              title: 'Add Admin',
+                              subtitle: 'Create new admin',
+                              count: -1,
+                              icon: Icons.person_add,
+                              color: Colors.teal,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const CreateAdminScreen(),
+                                  ),
+                                ).then((_) => _loadCounts());
+                              },
+                            ),
                             _buildCard(
                               context,
                               title: 'Admin View',
@@ -540,6 +557,7 @@ class _AdminPanelState extends State<AdminPanel> {
                                 ).then((_) => _loadCounts());
                               },
                             ),
+                          ],
                           _buildCard(
                             context,
                             title: 'Add User',
@@ -1236,10 +1254,11 @@ class _AdminUserAllowLoginTabState extends State<AdminUserAllowLoginTab> {
     );
   }
 
-// Admin Users List Screen (using home screen UI)
+// Admin Users List Screen (using home screen UI). Optional [adminId] for super-admin viewing one admin's users.
 class AdminUsersListScreen extends StatefulWidget {
   final String status;
-  const AdminUsersListScreen({super.key, required this.status});
+  final String? adminId;
+  const AdminUsersListScreen({super.key, required this.status, this.adminId});
 
   @override
   State<AdminUsersListScreen> createState() => _AdminUsersListScreenState();
@@ -1267,17 +1286,20 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
     try {
       final token = await _getToken();
       String endpoint;
-      
-      if (widget.status == 'cannot-login') {
-        endpoint = '${AppConfig.baseUrl}/admin/cannot-login';
+      if (widget.adminId != null && widget.adminId!.isNotEmpty) {
+        final path = widget.status == 'cannot-login' ? 'cannot-login' : widget.status;
+        endpoint = '${AppConfig.baseUrl}/admin/admins/${widget.adminId}/$path';
       } else {
-        endpoint = '${AppConfig.baseUrl}/admin/${widget.status}';
+        if (widget.status == 'cannot-login') {
+          endpoint = '${AppConfig.baseUrl}/admin/cannot-login';
+        } else {
+          endpoint = '${AppConfig.baseUrl}/admin/${widget.status}';
+        }
       }
-      
       if (_searchController.text.isNotEmpty) {
-        endpoint += '?search=${_searchController.text}';
+        endpoint += endpoint.contains('?') ? '&' : '?';
+        endpoint += 'search=${Uri.encodeComponent(_searchController.text)}';
       }
-      
       final response = await http.get(
         Uri.parse(endpoint),
         headers: {'Authorization': 'Bearer $token'},
@@ -1287,6 +1309,8 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
           _users = jsonDecode(response.body);
           _isLoading = false;
         });
+      } else {
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       setState(() => _isLoading = false);

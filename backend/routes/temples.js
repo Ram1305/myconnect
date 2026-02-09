@@ -10,10 +10,13 @@ const upload = multer({
     limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
-// GET /api/temples - List all temples
+// GET /api/temples - List all temples (optional referralId query for filtering)
 router.get('/', async (req, res) => {
     try {
-        const temples = await Temple.find().sort({ createdAt: -1 });
+        const { referralId: referralIdQuery } = req.query;
+        const query = {};
+        if (referralIdQuery) query.referralId = referralIdQuery;
+        const temples = await Temple.find(query).sort({ createdAt: -1 });
         res.json({ success: true, temples });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error', error: error.message });
@@ -41,7 +44,8 @@ router.post('/', adminAuth, upload.single('image'), async (req, res) => {
             name,
             address,
             frontImage: req.file.path,
-            createdBy: req.user._id
+            createdBy: req.user._id,
+            referralId: req.user.referralId || null
         });
 
         await temple.save();

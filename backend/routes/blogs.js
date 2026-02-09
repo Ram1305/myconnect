@@ -21,10 +21,17 @@ const upload = multer({
   }
 });
 
-// Get all blogs (public - all users can view)
+// Get all blogs (auth - filter by referralId for admin or optional query for super-admin)
 router.get('/', auth, async (req, res) => {
   try {
-    const blogs = await Blog.find()
+    const { referralId: referralIdQuery } = req.query;
+    const query = {};
+    if (req.user.role === 'admin' && req.user.referralId) {
+      query.referralId = req.user.referralId;
+    } else if (referralIdQuery) {
+      query.referralId = referralIdQuery;
+    }
+    const blogs = await Blog.find(query)
       .populate('createdBy', 'username profilePhoto')
       .populate('likes', 'username profilePhoto')
       .populate('comments.user', 'username profilePhoto')
@@ -79,7 +86,8 @@ router.post('/', adminAuth, upload.single('image'), async (req, res) => {
       description: description || null,
       image: imageUrl,
       location: location || null,
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      referralId: req.user.referralId || null
     });
     
     await blog.save();
