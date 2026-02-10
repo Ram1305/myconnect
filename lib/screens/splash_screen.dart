@@ -503,7 +503,7 @@ class _AdminPanelState extends State<AdminPanel> {
             ),
             centerTitle: true,
             actions: [
-              if (authProvider.isAdmin())
+              if (authProvider.isAdmin() || authProvider.isSuperAdmin())
                 const RoleSwitchWidget(isAdminView: true),
               IconButton(
                 icon: const Icon(Icons.logout),
@@ -3619,9 +3619,9 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
                         itemBuilder: (context, index) {
                           final chat = _chats[index];
                           final participants = chat['participants'] as List;
-                          final isPublicChat = chat['isPublic'] == true || chat['name'] == 'My Connect';
+                          final isPublicChat = chat['isPublic'] == true;
                           final displayName = isPublicChat
-                              ? 'My Connect'
+                              ? (chat['name']?.toString().trim().isNotEmpty == true ? chat['name'] : 'My Connect')
                               : (participants.isNotEmpty
                                   ? (participants.length > 1
                                       ? participants[1]['username'] ?? 'Unknown'

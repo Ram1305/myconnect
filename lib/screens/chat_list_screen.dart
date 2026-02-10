@@ -114,7 +114,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
       // Check ALL chats (including ones without messages) from _allChatsForSearch
       // This ensures users with chats (even without messages) are excluded from user search
       for (var chat in _allChatsForSearch) {
-        final isPublic = chat['isPublic'] == true || chat['name'] == 'My Connect';
+        final isPublic = chat['isPublic'] == true;
         if (isPublic) continue; // Skip public chats
         
         final participants = (chat['participants'] as List?) ?? [];
@@ -252,7 +252,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                               
                               // Use all chats for search (including ones without messages)
                               for (var chat in _allChatsForSearch) {
-                                final isPublic = chat['isPublic'] == true || chat['name'] == 'My Connect';
+                                final isPublic = chat['isPublic'] == true;
                                 if (!isPublic) {
                                   allChats.add(chat);
                                 }
@@ -278,7 +278,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                               final chat = allChats[i];
                               final chatId = chat['_id']?.toString() ?? 'No ID';
                               final participants = (chat['participants'] as List?) ?? [];
-                              final isPublic = chat['isPublic'] == true || chat['name'] == 'My Connect';
+                              final isPublic = chat['isPublic'] == true;
                               print('🔍 SEARCH DEBUG - Chat $i: ID=$chatId, isPublic=$isPublic, Participants Count=${participants.length}');
                               for (var j = 0; j < participants.length; j++) {
                                 final participant = participants[j];
@@ -305,7 +305,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                                 ? allChats
                                 : allChats.where((chat) {
                                     final participants = (chat['participants'] as List?) ?? [];
-                                    final isPublicChat = chat['isPublic'] == true || chat['name'] == 'My Connect';
+                                    final isPublicChat = chat['isPublic'] == true;
                                     
                                     // Exclude public/My Connect chat from search results
                                     if (isPublicChat) {
@@ -348,8 +348,8 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                               filteredChats.sort((a, b) {
                                 final participantsA = (a['participants'] as List?) ?? [];
                                 final participantsB = (b['participants'] as List?) ?? [];
-                                final isPublicA = a['isPublic'] == true || a['name'] == 'My Connect';
-                                final isPublicB = b['isPublic'] == true || b['name'] == 'My Connect';
+                                final isPublicA = a['isPublic'] == true;
+                                final isPublicB = b['isPublic'] == true;
                                 
                                 // Get display usernames for comparison
                                 String usernameA = '';
@@ -397,7 +397,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                             for (var i = 0; i < filteredChats.length; i++) {
                               final chat = filteredChats[i];
                               final chatId = chat['_id']?.toString() ?? 'No ID';
-                              final isPublic = chat['isPublic'] == true || chat['name'] == 'My Connect';
+                              final isPublic = chat['isPublic'] == true;
                               print('🔍 SEARCH DEBUG - Filtered Chat $i: ID=$chatId, isPublic=$isPublic');
                             }
 
@@ -458,7 +458,7 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                                   final currentUserId = authProvider.user?['_id']?.toString() ?? 
                                                        authProvider.user?['id']?.toString();
                                   
-                                  final isPublicChat = chat['isPublic'] == true || chat['name'] == 'My Connect';
+                                  final isPublicChat = chat['isPublic'] == true;
                                   
                                   print('🔍 UI DEBUG - Chat at index $index: isPublicChat=$isPublicChat');
                                   
@@ -494,7 +494,8 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                                       }
                                     }
                                   } else {
-                                    displayName = 'My Connect';
+                                    final publicName = chat['name']?.toString().trim();
+                                    displayName = (publicName != null && publicName.isNotEmpty) ? publicName : 'My Connect';
                                   }
                                   
                                   print('🔍 UI DEBUG - Display name set to: "$displayName" for chat at index $index');

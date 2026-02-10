@@ -21,7 +21,7 @@ class RoleSwitchWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!authProvider.isAdmin()) return const SizedBox.shrink();
+    if (!authProvider.isAdmin() && !authProvider.isSuperAdmin()) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(right: 8),

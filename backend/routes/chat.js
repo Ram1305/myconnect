@@ -104,13 +104,14 @@ router.post('/:chatId/message', auth, async (req, res) => {
     );
 
     if (chat.isPublic) {
-      // For group chat, send to all other participants
+      // For group chat, send to all other participants (title = admin/chat name)
       const fcmTokens = otherParticipants.map(p => p.fcmToken).filter(Boolean);
       if (fcmTokens.length > 0) {
         const senderName = req.user.username || 'Someone';
+        const chatTitle = (chat.name && chat.name.trim()) ? `${chat.name} Chat` : 'My Connect Chat';
         await sendNotificationToMultiple(
           fcmTokens,
-          'My Connect Chat',
+          chatTitle,
           `${senderName}: ${message}`,
           {
             type: 'chat',
@@ -184,35 +185,61 @@ router.get('/:chatId/messages', auth, async (req, res) => {
   }
 });
 
-// Get or create public My Connect chat (simpler route)
+// Get or create public group chat (referral-based: admin name as chat name)
 router.get('/public', auth, async (req, res) => {
   try {
-    let chat = await Chat.findOne({
-      isPublic: true,
-      name: 'My Connect'
-    }).populate('participants', 'username mobileNumber profilePhoto')
-      .populate('messages.sender', 'username profilePhoto');
+    const referralIdToUse = (req.user.referredByReferralId && String(req.user.referredByReferralId).trim()) || null;
 
-    if (!chat) {
-      // Create the public chat
-      chat = new Chat({
-        participants: [req.user._id], // Add current user as first participant
-        messages: [],
+    let chat;
+    if (referralIdToUse) {
+      chat = await Chat.findOne({
         isPublic: true,
-        name: 'My Connect',
-        lastMessage: '',
-        lastMessageTime: new Date()
-      });
-      await chat.save();
-      await chat.populate('participants', 'username mobileNumber profilePhoto');
-    } else {
-      // Add current user to participants if not already in
-      const isParticipant = chat.participants.some(p => p._id.toString() === req.user._id.toString());
-      if (!isParticipant) {
-        chat.participants.push(req.user._id);
+        referralId: referralIdToUse
+      }).populate('participants', 'username mobileNumber profilePhoto')
+        .populate('messages.sender', 'username profilePhoto');
+
+      if (!chat) {
+        const admin = await User.findOne({ referralId: referralIdToUse }).select('username').lean();
+        const adminName = (admin && admin.username) ? admin.username : 'My Connect';
+        chat = new Chat({
+          participants: [req.user._id],
+          messages: [],
+          isPublic: true,
+          name: adminName,
+          referralId: referralIdToUse,
+          adminDisplayName: adminName,
+          lastMessage: '',
+          lastMessageTime: new Date()
+        });
         await chat.save();
         await chat.populate('participants', 'username mobileNumber profilePhoto');
       }
+    } else {
+      chat = await Chat.findOne({
+        isPublic: true,
+        $or: [{ referralId: null }, { referralId: { $exists: false } }]
+      }).populate('participants', 'username mobileNumber profilePhoto')
+        .populate('messages.sender', 'username profilePhoto');
+
+      if (!chat) {
+        chat = new Chat({
+          participants: [req.user._id],
+          messages: [],
+          isPublic: true,
+          name: 'My Connect',
+          lastMessage: '',
+          lastMessageTime: new Date()
+        });
+        await chat.save();
+        await chat.populate('participants', 'username mobileNumber profilePhoto');
+      }
+    }
+
+    const isParticipant = chat.participants.some(p => p._id.toString() === req.user._id.toString());
+    if (!isParticipant) {
+      chat.participants.push(req.user._id);
+      await chat.save();
+      await chat.populate('participants', 'username mobileNumber profilePhoto');
     }
 
     res.json(chat);
@@ -221,35 +248,61 @@ router.get('/public', auth, async (req, res) => {
   }
 });
 
-// Get or create public My Connect chat (alternative route for backward compatibility)
+// Get or create public My Connect chat (alternative route – same referral-based logic)
 router.get('/public/my-connect', auth, async (req, res) => {
   try {
-    let chat = await Chat.findOne({
-      isPublic: true,
-      name: 'My Connect'
-    }).populate('participants', 'username mobileNumber profilePhoto')
-      .populate('messages.sender', 'username profilePhoto');
+    const referralIdToUse = (req.user.referredByReferralId && String(req.user.referredByReferralId).trim()) || null;
 
-    if (!chat) {
-      // Create the public chat
-      chat = new Chat({
-        participants: [req.user._id], // Add current user as first participant
-        messages: [],
+    let chat;
+    if (referralIdToUse) {
+      chat = await Chat.findOne({
         isPublic: true,
-        name: 'My Connect',
-        lastMessage: '',
-        lastMessageTime: new Date()
-      });
-      await chat.save();
-      await chat.populate('participants', 'username mobileNumber profilePhoto');
-    } else {
-      // Add current user to participants if not already in
-      const isParticipant = chat.participants.some(p => p._id.toString() === req.user._id.toString());
-      if (!isParticipant) {
-        chat.participants.push(req.user._id);
+        referralId: referralIdToUse
+      }).populate('participants', 'username mobileNumber profilePhoto')
+        .populate('messages.sender', 'username profilePhoto');
+
+      if (!chat) {
+        const admin = await User.findOne({ referralId: referralIdToUse }).select('username').lean();
+        const adminName = (admin && admin.username) ? admin.username : 'My Connect';
+        chat = new Chat({
+          participants: [req.user._id],
+          messages: [],
+          isPublic: true,
+          name: adminName,
+          referralId: referralIdToUse,
+          adminDisplayName: adminName,
+          lastMessage: '',
+          lastMessageTime: new Date()
+        });
         await chat.save();
         await chat.populate('participants', 'username mobileNumber profilePhoto');
       }
+    } else {
+      chat = await Chat.findOne({
+        isPublic: true,
+        $or: [{ referralId: null }, { referralId: { $exists: false } }]
+      }).populate('participants', 'username mobileNumber profilePhoto')
+        .populate('messages.sender', 'username profilePhoto');
+
+      if (!chat) {
+        chat = new Chat({
+          participants: [req.user._id],
+          messages: [],
+          isPublic: true,
+          name: 'My Connect',
+          lastMessage: '',
+          lastMessageTime: new Date()
+        });
+        await chat.save();
+        await chat.populate('participants', 'username mobileNumber profilePhoto');
+      }
+    }
+
+    const isParticipant = chat.participants.some(p => p._id.toString() === req.user._id.toString());
+    if (!isParticipant) {
+      chat.participants.push(req.user._id);
+      await chat.save();
+      await chat.populate('participants', 'username mobileNumber profilePhoto');
     }
 
     res.json(chat);

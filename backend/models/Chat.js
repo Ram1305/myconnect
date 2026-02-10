@@ -40,6 +40,17 @@ const chatSchema = new mongoose.Schema({
   name: {
     type: String,
     default: null
+  },
+  // For referral-based public chats: which admin's group this is
+  referralId: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  adminDisplayName: {
+    type: String,
+    default: null,
+    trim: true
   }
 }, {
   timestamps: true

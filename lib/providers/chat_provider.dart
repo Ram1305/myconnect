@@ -140,7 +140,7 @@ class ChatProvider with ChangeNotifier {
       
       // Filter: Only show chats with messages (excluding public chats)
       _chats = allChats.where((chat) {
-        final isPublic = chat['isPublic'] == true || chat['name'] == 'My Connect';
+        final isPublic = chat['isPublic'] == true;
         final hasMessages = (chat['messages'] as List?)?.isNotEmpty ?? false;
         // Exclude public chats from regular list, only include chats with messages
         return !isPublic && hasMessages;

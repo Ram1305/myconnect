@@ -473,10 +473,25 @@ router.put('/allow-login/:id', adminAuth, async (req, res) => {
   }
 });
 
-// Get all chats (admin view)
+// Get all chats (admin view) – filtered by referral: admin sees only their group chat + chats of their referred users
 router.get('/chats', adminAuth, async (req, res) => {
   try {
-    const chats = await Chat.find()
+    let query = {};
+
+    if (req.user.role === 'admin' && req.user.referralId) {
+      const referralId = String(req.user.referralId).trim();
+      const referredUserIds = await User.find({ referredByReferralId: referralId }).select('_id').lean().then(users => users.map(u => u._id));
+      const adminAndReferredIds = [req.user._id, ...referredUserIds];
+
+      query = {
+        $or: [
+          { isPublic: true, referralId: referralId },
+          { isPublic: { $ne: true }, participants: { $in: adminAndReferredIds } }
+        ]
+      };
+    }
+
+    const chats = await Chat.find(query)
       .populate('participants', 'username mobileNumber profilePhoto')
       .sort({ lastMessageTime: -1 })
       .limit(100);
