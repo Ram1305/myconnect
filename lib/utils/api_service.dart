@@ -114,11 +114,12 @@ class ApiService {
 
       final data = jsonDecode(response.body);
       
-      // If response is not successful, return error
+      // If response is not successful, return error (pass through backend error code e.g. ADMIN_BLOCKED)
       if (response.statusCode != 200) {
         return {
-          'error': data['message'] ?? 'Login failed',
-          'message': data['message'] ?? 'Invalid credentials'
+          'error': data['error'] ?? data['message'] ?? 'Login failed',
+          'message': data['message'] ?? 'Invalid credentials',
+          if (data['error'] != null) 'errorCode': data['error'],
         };
       }
       

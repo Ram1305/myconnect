@@ -1125,10 +1125,11 @@ class _SignupScreenState extends State<SignupScreen> {
           }
         } else {
           debugPrint('❌ [SIGNUP] Registration failed');
+          final errorMessage = authProvider.lastError ?? 'Registration failed. Please try again.';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Registration failed. Please try again.',
+                errorMessage,
                 style: GoogleFonts.poppins(
                   color: Colors.white,
                   fontWeight: FontWeight.w500,

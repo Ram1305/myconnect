@@ -8,12 +8,14 @@ class AuthProvider with ChangeNotifier {
   Map<String, dynamic>? _user;
   bool _isLoading = false;
   String? _lastError;
+  String? _lastErrorCode;
 
   String? get token => _token;
   Map<String, dynamic>? get user => _user;
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _token != null;
   String? get lastError => _lastError;
+  String? get lastErrorCode => _lastErrorCode;
 
   AuthProvider() {
     _loadToken();
@@ -58,7 +60,14 @@ class AuthProvider with ChangeNotifier {
       } else {
         // Signup failed - there's an error
         debugPrint('❌ [AUTH] Signup failed. Response: $response');
-        _lastError = response['error'] ?? response['message'] ?? 'Registration failed';
+        final rawError = response['error'] ?? response['message'] ?? 'Registration failed';
+        final rawStr = rawError.toString().toLowerCase();
+        // If backend indicates invalid referral, show user-friendly message
+        if (rawStr.contains('referral') || rawStr.contains('referralid') || rawStr.contains('referral id')) {
+          _lastError = 'Please check your referral ID';
+        } else {
+          _lastError = rawError is String ? rawError : rawError.toString();
+        }
         _isLoading = false;
         notifyListeners();
         return false;
@@ -76,6 +85,7 @@ class AuthProvider with ChangeNotifier {
   Future<bool> login(String mobileNumber, String password) async {
     _isLoading = true;
     _lastError = null;
+    _lastErrorCode = null;
     notifyListeners();
 
     try {
@@ -102,16 +112,20 @@ class AuthProvider with ChangeNotifier {
         
         _isLoading = false;
         _lastError = null;
+        _lastErrorCode = null;
         notifyListeners();
         return true;
       } else {
         _lastError = response['message'] ?? response['error'] ?? 'Invalid credentials';
+        _lastErrorCode = response['errorCode'] ?? response['error'];
+        if (_lastErrorCode is! String) _lastErrorCode = null;
         _isLoading = false;
         notifyListeners();
         return false;
       }
     } catch (e) {
       _lastError = 'Network error. Please check your connection.';
+      _lastErrorCode = null;
       _isLoading = false;
       notifyListeners();
       return false;

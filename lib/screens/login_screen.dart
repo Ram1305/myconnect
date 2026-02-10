@@ -7,6 +7,7 @@ import 'dashboard.dart';
 import 'status_screen.dart';
 import 'splash_screen.dart';
 import 'forgot_password_screen.dart';
+import 'admin_blocked_screen.dart';
 import '../utils/theme.dart';
 import '../config/app_config.dart';
 
@@ -205,6 +206,15 @@ class _LoginScreenState extends State<LoginScreen> {
             }
           }
         } else {
+          // When super admin has blocked this admin, show dedicated blocked screen (no contact administrator)
+          if (authProvider.lastErrorCode == 'ADMIN_BLOCKED') {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => const AdminBlockedScreen(),
+              ),
+            );
+            return;
+          }
           final errorMessage = authProvider.lastError ?? 'Invalid credentials';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

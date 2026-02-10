@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
@@ -486,6 +488,127 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
+  void _showMyReferralSheet(BuildContext context, String? referralId, String? adminName) {
+    final code = referralId?.trim();
+    final hasCode = code != null && code.isNotEmpty;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.backgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Text(
+              'My Referral Code',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+            const SizedBox(height: 20),
+            if (hasCode) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                decoration: BoxDecoration(
+                  color: AppTheme.lightGold.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.5),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.confirmation_number_outlined,
+                      color: AppTheme.primaryColor,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SelectableText(
+                        code,
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.copy, color: AppTheme.primaryColor),
+                      tooltip: 'Copy',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: code));
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(
+                            content: Text('Copied to clipboard', style: GoogleFonts.poppins()),
+                            backgroundColor: Colors.green,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Share.share(
+                      'Use this referral code for My Connect: $code${adminName != null && adminName.isNotEmpty ? ' (Admin: $adminName)' : ''}',
+                    );
+                  },
+                  icon: const Icon(Icons.share, size: 22),
+                  label: Text('Share', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'No referral code available',
+                  style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[600]),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
@@ -503,7 +626,7 @@ class _AdminPanelState extends State<AdminPanel> {
             ),
             centerTitle: true,
             actions: [
-              if (authProvider.isAdmin() || authProvider.isSuperAdmin())
+              if (authProvider.isAdmin() && !authProvider.isSuperAdmin())
                 const RoleSwitchWidget(isAdminView: true),
               IconButton(
                 icon: const Icon(Icons.logout),
@@ -586,10 +709,14 @@ class _AdminPanelState extends State<AdminPanel> {
                             icon: Icons.person_add,
                             color: AppTheme.primaryColor,
                             onTap: () {
+                              final referralId = authProvider.user?['referralId']?.toString();
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const SignupScreen(adminCreated: true),
+                                  builder: (_) => SignupScreen(
+                                    adminCreated: true,
+                                    initialReferralId: referralId?.trim().isNotEmpty == true ? referralId : null,
+                                  ),
                                 ),
                               );
                             },
@@ -804,6 +931,21 @@ class _AdminPanelState extends State<AdminPanel> {
                       ).then((_) => _loadCounts());
                     },
                   ),
+                  _buildCard(
+                    context,
+                    title: 'My Referral code ',
+                    subtitle: 'View & share referral code',
+                    count: -1,
+                    icon: Icons.card_giftcard,
+                    color: Colors.amber.shade700,
+                    onTap: () {
+                      _showMyReferralSheet(
+                        context,
+                        authProvider.user?['referralId']?.toString(),
+                        authProvider.user?['username']?.toString() ?? authProvider.user?['name']?.toString(),
+                      );
+                    },
+                  ),
                           ],
                 ],
                   ),
@@ -861,10 +1003,15 @@ class _AdminAddUserTabState extends State<AdminAddUserTab> {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: () {
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                final referralId = authProvider.user?['referralId']?.toString();
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const SignupScreen(adminCreated: true),
+                    builder: (_) => SignupScreen(
+                      adminCreated: true,
+                      initialReferralId: referralId?.trim().isNotEmpty == true ? referralId : null,
+                    ),
                   ),
                 );
               },
