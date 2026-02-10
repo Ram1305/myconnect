@@ -278,16 +278,16 @@ class PermissionService {
   }
 
   /// Helper method to pick an image with proper iOS/Android permission handling.
-  /// On iOS, image_picker handles permissions directly (triggers system dialogs properly).
-  /// On Android, we pre-check permissions for better UX.
+  /// Request permission first so the system dialog shows with correct usage descriptions.
   /// Returns the picked File or null if cancelled/denied.
   static Future<File?> pickImageWithPermission({
     required BuildContext context,
     required ImageSource source,
   }) async {
-    // On iOS, let image_picker handle permissions directly - it triggers system dialogs properly
-    // On Android, we pre-check permissions for better UX
-    if (Platform.isAndroid) {
+    // Request permission before opening picker on both iOS and Android so the system
+    // permission dialog is shown properly (requires Info.plist keys on iOS and
+    // uses-permission in AndroidManifest on Android).
+    if (Platform.isAndroid || Platform.isIOS) {
       bool hasPermission = false;
       if (source == ImageSource.camera) {
         hasPermission = await requestCameraPermission(context);

@@ -739,48 +739,44 @@ class _SignupScreenState extends State<SignupScreen> {
 
     if (source == null || !mounted) return;
 
-    // On iOS, let image_picker handle permissions directly - it triggers system dialogs properly
-    // On Android, we pre-check permissions for better UX
-    if (Platform.isAndroid) {
-      bool hasPermission = false;
-      if (source == ImageSource.camera) {
-        hasPermission = await PermissionService.requestCameraPermission(context);
-        if (!hasPermission) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Camera permission is required to take photos',
-                  style: GoogleFonts.poppins(),
-                ),
-                duration: const Duration(seconds: 3),
+    // Request permission on both iOS and Android so the system dialog shows properly
+    bool hasPermission = false;
+    if (source == ImageSource.camera) {
+      hasPermission = await PermissionService.requestCameraPermission(context);
+      if (!hasPermission) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Camera permission is required to take photos',
+                style: GoogleFonts.poppins(),
               ),
-            );
-          }
-          return;
+              duration: const Duration(seconds: 3),
+            ),
+          );
         }
-      } else {
-        // Request storage permission for gallery - request it explicitly
-        hasPermission = await PermissionService.requestStoragePermission(context);
-        if (!hasPermission) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Storage permission is required to select photos. Please grant permission and try again.',
-                  style: GoogleFonts.poppins(),
-                ),
-                duration: const Duration(seconds: 4),
-                action: SnackBarAction(
-                  label: 'Retry',
-                  textColor: Colors.white,
-                  onPressed: () => _pickProfilePhoto(),
-                ),
+        return;
+      }
+    } else {
+      hasPermission = await PermissionService.requestStoragePermission(context);
+      if (!hasPermission) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Storage permission is required to select photos. Please grant permission and try again.',
+                style: GoogleFonts.poppins(),
               ),
-            );
-          }
-          return;
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(
+                label: 'Retry',
+                textColor: Colors.white,
+                onPressed: () => _pickProfilePhoto(),
+              ),
+            ),
+          );
         }
+        return;
       }
     }
 
