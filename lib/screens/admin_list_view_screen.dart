@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 import '../utils/api_service.dart';
 import '../utils/theme.dart';
 import 'signup_screen.dart';
@@ -10,8 +12,11 @@ import 'gallery_screen.dart';
 import 'temple_list_screen.dart';
 
 /// Super-admin: list of admins with grid/list view toggle.
+/// When [blockedOnly] is true, shows only blocked admins.
 class AdminListViewScreen extends StatefulWidget {
-  const AdminListViewScreen({super.key});
+  const AdminListViewScreen({super.key, this.blockedOnly = false});
+
+  final bool blockedOnly;
 
   @override
   State<AdminListViewScreen> createState() => _AdminListViewScreenState();
@@ -20,12 +25,37 @@ class AdminListViewScreen extends StatefulWidget {
 class _AdminListViewScreenState extends State<AdminListViewScreen> {
   List<dynamic> _admins = [];
   bool _isLoading = true;
-  bool _isGridView = true;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadAdmins();
+    _searchController.addListener(() {
+      setState(() => _searchQuery = _searchController.text.trim());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<dynamic> get _filteredAdmins {
+    if (_searchQuery.isEmpty) return _admins;
+    final q = _searchQuery.toLowerCase();
+    return _admins.where((a) {
+      final username = (a['username']?.toString() ?? '').toLowerCase();
+      final mobile = (a['mobileNumber']?.toString() ?? '').toLowerCase();
+      final email = (a['emailId']?.toString() ?? '').toLowerCase();
+      final referral = (a['referralId']?.toString() ?? '').toLowerCase();
+      return username.contains(q) ||
+          mobile.contains(q) ||
+          email.contains(q) ||
+          referral.contains(q);
+    }).toList();
   }
 
   Future<void> _loadAdmins() async {
@@ -33,7 +63,13 @@ class _AdminListViewScreenState extends State<AdminListViewScreen> {
     final admins = await ApiService.getAdmins();
     if (mounted) {
       setState(() {
-        _admins = admins;
+        // Exclude super admin from the list so they don't appear in Admin View
+        final withoutSuperAdmin = admins
+            .where((a) => (a['role']?.toString() ?? '').toLowerCase() != 'super-admin')
+            .toList();
+        _admins = widget.blockedOnly
+            ? withoutSuperAdmin.where((a) => a['isBlocked'] == true).toList()
+            : withoutSuperAdmin;
         _isLoading = false;
       });
     }
@@ -42,59 +78,180 @@ class _AdminListViewScreenState extends State<AdminListViewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: Text(
-          'Admin View',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          widget.blockedOnly ? 'Blocked Admins' : 'Admin View',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            letterSpacing: -0.3,
+          ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),
-            tooltip: _isGridView ? 'List view' : 'Grid view',
-            onPressed: () {
-              setState(() => _isGridView = !_isGridView);
-            },
+        elevation: 0,
+        scrolledUnderElevation: 8,
+        backgroundColor: AppTheme.backgroundColor,
+        foregroundColor: AppTheme.primaryColor,
+        surfaceTintColor: AppTheme.primaryColor.withValues(alpha: 0.08),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search by name, mobile, email...',
+                  hintStyle: GoogleFonts.poppins(
+                    color: Colors.grey[500],
+                    fontSize: 14,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    color: AppTheme.primaryColor.withValues(alpha: 0.8),
+                    size: 22,
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: AppTheme.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                ),
+                style: GoogleFonts.poppins(fontSize: 15),
+              ),
+            ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? _buildLoadingState()
+                : _admins.isEmpty
+                    ? _buildEmptyState(
+                        icon: Icons.admin_panel_settings_rounded,
+                        title: 'No admins yet',
+                        subtitle: 'Admins will appear here once they are created.',
+                      )
+                    : _filteredAdmins.isEmpty
+                        ? _buildEmptyState(
+                            icon: Icons.search_off_rounded,
+                            title: 'No results found',
+                            subtitle: 'Try a different search for "$_searchQuery".',
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _loadAdmins,
+                            color: AppTheme.primaryColor,
+                            child: _buildList(),
+                          ),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _admins.isEmpty
-              ? Center(
-                  child: Text(
-                    'No admins found',
-                    style: GoogleFonts.poppins(),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadAdmins,
-                  child: _isGridView ? _buildGrid() : _buildList(),
-                ),
     );
   }
 
-  Widget _buildGrid() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
-        childAspectRatio: 1.0,
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading admins...',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
       ),
-      itemCount: _admins.length,
-      itemBuilder: (context, index) => _buildAdminCard(_admins[index]),
+    );
+  }
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 56,
+                color: AppTheme.primaryColor.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryColor,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildList() {
+    final list = _filteredAdmins;
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _admins.length,
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      itemCount: list.length,
       itemBuilder: (context, index) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: _buildAdminCard(_admins[index]),
+        padding: const EdgeInsets.only(bottom: 14),
+        child: _buildAdminCard(list[index]),
       ),
     );
   }
@@ -130,128 +287,354 @@ class _AdminListViewScreenState extends State<AdminListViewScreen> {
     _loadAdmins();
   }
 
+  void _showReferralCodeSheet(BuildContext context, String? referralId, String? adminName) {
+    final code = referralId?.trim();
+    final hasCode = code != null && code.isNotEmpty;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.backgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Text(
+              'Referral Code',
+              style: GoogleFonts.poppins(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+            const SizedBox(height: 20),
+            if (hasCode) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                decoration: BoxDecoration(
+                  color: AppTheme.lightGold.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.5),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.confirmation_number_outlined,
+                      color: AppTheme.primaryColor,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SelectableText(
+                        code,
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.copy, color: AppTheme.primaryColor),
+                      tooltip: 'Copy',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: code));
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(
+                            content: Text('Copied to clipboard', style: GoogleFonts.poppins()),
+                            backgroundColor: Colors.green,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Share.share(
+                      'Use this referral code for My Connect: $code${adminName != null && adminName.isNotEmpty ? ' (Admin: $adminName)' : ''}',
+                    );
+                  },
+                  icon: const Icon(Icons.share, size: 22),
+                  label: Text('Share', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'No referral code',
+                  style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey[600]),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAdminCard(Map<String, dynamic> admin) {
     final role = admin['role']?.toString() ?? 'admin';
     final relatedCount = admin['relatedCount'] as int? ?? 0;
     final isBlocked = admin['isBlocked'] == true;
     final isAdminRole = role == 'admin';
     final profilePhoto = admin['profilePhoto']?.toString();
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AdminDetailScreen(admin: admin),
-            ),
-          ).then((_) => _loadAdmins());
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
-                    backgroundImage: (profilePhoto != null && profilePhoto.isNotEmpty)
-                        ? NetworkImage(profilePhoto)
-                        : null,
-                    child: (profilePhoto == null || profilePhoto.isEmpty)
-                        ? Icon(Icons.admin_panel_settings, color: AppTheme.primaryColor)
-                        : null,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      admin['username']?.toString() ?? 'Admin',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+    final mobile = admin['mobileNumber']?.toString() ?? '—';
+    final email = admin['emailId']?.toString();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.primaryColor.withValues(alpha: 0.12),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AdminDetailScreen(admin: admin),
               ),
-              const SizedBox(height: 8),
-              Text(
-                admin['mobileNumber']?.toString() ?? '',
-                style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600]),
-              ),
-              if (admin['referralId'] != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  'ID: ${admin['referralId']}',
-                  style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500]),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      role,
-                      style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  if (isBlocked) ...[
-                    const SizedBox(width: 6),
+            ).then((_) => _loadAdmins());
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        'Blocked',
-                        style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.red),
+                      child: CircleAvatar(
+                        radius: 28,
+                        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                        backgroundImage: (profilePhoto != null && profilePhoto.isNotEmpty)
+                            ? NetworkImage(profilePhoto)
+                            : null,
+                        child: (profilePhoto == null || profilePhoto.isEmpty)
+                            ? Icon(Icons.person_rounded, color: AppTheme.primaryColor, size: 28)
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            admin['username']?.toString() ?? 'Admin',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 17,
+                              color: AppTheme.primaryColor,
+                              letterSpacing: -0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(Icons.phone_rounded, size: 14, color: Colors.grey[600]),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  mobile,
+                                  style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[700]),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (email != null && email.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Icon(Icons.email_outlined, size: 14, color: Colors.grey[600]),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    email,
+                                    style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ],
-                  const SizedBox(width: 8),
-                  Text(
-                    '$relatedCount related',
-                    style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-              if (isAdminRole) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: GestureDetector(
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _buildChip(
+                      label: role,
+                      color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                      textColor: AppTheme.primaryColor,
+                    ),
+                    if (isBlocked)
+                      _buildChip(
+                        label: 'Blocked',
+                        color: Colors.red.withValues(alpha: 0.15),
+                        textColor: Colors.red[700]!,
+                      ),
+                    _buildChip(
+                      label: '$relatedCount related',
+                      color: Colors.grey.withValues(alpha: 0.12),
+                      textColor: Colors.grey[700]!,
+                    ),
+                  ],
+                ),
+                if (admin['referralId'] != null) ...[
+                  const SizedBox(height: 10),
+                  GestureDetector(
                     onTap: () {
-                      _blockOrUnblockAdmin(admin, !isBlocked);
+                      _showReferralCodeSheet(
+                        context,
+                        admin['referralId']?.toString(),
+                        admin['username']?.toString(),
+                      );
                     },
                     behavior: HitTestBehavior.opaque,
-                    child: Text(
-                      isBlocked ? 'Unblock' : 'Block',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isBlocked ? Colors.green : Colors.red,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.lightGold.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.card_giftcard_rounded, size: 16, color: AppTheme.primaryColor),
+                          const SizedBox(width: 6),
+                          Text(
+                            'View referral code',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ),
+                ],
+                if (isAdminRole) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.tonal(
+                      onPressed: () => _blockOrUnblockAdmin(admin, !isBlocked),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: isBlocked
+                            ? Colors.green.withValues(alpha: 0.15)
+                            : Colors.red.withValues(alpha: 0.12),
+                        foregroundColor: isBlocked ? Colors.green[700] : Colors.red[700],
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        minimumSize: const Size(0, 36),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Text(
+                        isBlocked ? 'Unblock' : 'Block',
+                        style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildChip({
+    required String label,
+    required Color color,
+    required Color textColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: textColor),
       ),
     );
   }
@@ -273,27 +656,51 @@ class AdminDetailScreen extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 32, color: color),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 26, color: color),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: AppTheme.primaryColor,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -302,40 +709,103 @@ class AdminDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final profilePhoto = admin['profilePhoto']?.toString();
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: Text(
           admin['username']?.toString() ?? 'Admin',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            letterSpacing: -0.2,
+          ),
         ),
         centerTitle: true,
+        elevation: 0,
+        backgroundColor: AppTheme.backgroundColor,
+        foregroundColor: AppTheme.primaryColor,
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.grey[100],
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Mobile: ${admin['mobileNumber'] ?? ''}',
-                  style: GoogleFonts.poppins(fontSize: 14),
+            margin: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppTheme.primaryColor.withValues(alpha: 0.12),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
-                if (_referralId != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Referral ID: $_referralId',
-                    style: GoogleFonts.poppins(fontSize: 14),
+              ],
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                  backgroundImage: (profilePhoto != null && profilePhoto.isNotEmpty)
+                      ? NetworkImage(profilePhoto)
+                      : null,
+                  child: (profilePhoto == null || profilePhoto.isEmpty)
+                      ? Icon(Icons.person_rounded, color: AppTheme.primaryColor, size: 28)
+                      : null,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.phone_rounded, size: 16, color: AppTheme.primaryColor),
+                          const SizedBox(width: 8),
+                          Text(
+                            admin['mobileNumber']?.toString() ?? '—',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_referralId != null) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Icon(Icons.card_giftcard_rounded, size: 16, color: AppTheme.primaryColor),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _referralId!,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  color: Colors.grey[700],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
               ],
             ),
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               child: GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),

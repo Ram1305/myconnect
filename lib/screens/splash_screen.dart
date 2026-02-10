@@ -27,6 +27,7 @@ import 'create_admin_screen.dart';
 import '../utils/theme.dart';
 import '../config/app_config.dart';
 import '../services/notification_service.dart';
+import '../widgets/role_switch_widget.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -502,6 +503,8 @@ class _AdminPanelState extends State<AdminPanel> {
             ),
             centerTitle: true,
             actions: [
+              if (authProvider.isAdmin())
+                const RoleSwitchWidget(isAdminView: true),
               IconButton(
                 icon: const Icon(Icons.logout),
                 tooltip: 'Logout',
@@ -557,7 +560,24 @@ class _AdminPanelState extends State<AdminPanel> {
                                 ).then((_) => _loadCounts());
                               },
                             ),
+                            _buildCard(
+                              context,
+                              title: 'Blocked Admin',
+                              subtitle: 'View blocked admins',
+                              count: -1,
+                              icon: Icons.block,
+                              color: Colors.red,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const AdminListViewScreen(blockedOnly: true),
+                                  ),
+                                ).then((_) => _loadCounts());
+                              },
+                            ),
                           ],
+                          if (!isSuperAdmin) ...[
                           _buildCard(
                             context,
                             title: 'Add User',
@@ -784,6 +804,7 @@ class _AdminPanelState extends State<AdminPanel> {
                       ).then((_) => _loadCounts());
                     },
                   ),
+                          ],
                 ],
                   ),
                 ),

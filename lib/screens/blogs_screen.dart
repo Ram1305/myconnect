@@ -11,7 +11,9 @@ import 'add_blog_screen.dart';
 import 'events_screen.dart';
 
 class BlogsScreen extends StatefulWidget {
-  const BlogsScreen({super.key});
+  const BlogsScreen({super.key, this.showAppBar = true});
+
+  final bool showAppBar;
 
   @override
   State<BlogsScreen> createState() => _BlogsScreenState();
@@ -199,14 +201,17 @@ class _BlogsScreenState extends State<BlogsScreen> with SingleTickerProviderStat
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Text(
-          _tabController.index == 0 ? 'Blogs' : 'Events',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-            fontSize: 22,
-            color: Colors.black,
-          ),
-        ),
+        automaticallyImplyLeading: false,
+        title: widget.showAppBar
+            ? Text(
+                _tabController.index == 0 ? 'Blogs' : 'Events',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 22,
+                  color: Colors.black,
+                ),
+              )
+            : const SizedBox.shrink(),
         centerTitle: true,
         bottom: TabBar(
           controller: _tabController,

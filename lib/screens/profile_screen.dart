@@ -18,7 +18,13 @@ import 'map_picker_screen.dart';
 class ProfileScreen extends StatefulWidget {
   final String? userId; // For admin editing other users
   final bool isAdminEdit; // Flag to indicate admin is editing
-  const ProfileScreen({super.key, this.userId, this.isAdminEdit = false});
+  final bool showAppBar;
+  const ProfileScreen({
+    super.key,
+    this.userId,
+    this.isAdminEdit = false,
+    this.showAppBar = true,
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -346,14 +352,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        centerTitle: true,
-        title: Text(
-          _isEditMode ? 'Edit Profile' : 'Profile',
-          style: GoogleFonts.poppins(),
-        ),
-        actions: [
+      appBar: widget.showAppBar
+          ? AppBar(
+              titleSpacing: 0,
+              centerTitle: true,
+              title: Text(
+                _isEditMode ? 'Edit Profile' : 'Profile',
+                style: GoogleFonts.poppins(),
+              ),
+              actions: [
           if (!_isEditMode)
             IconButton(
               icon: const Icon(Icons.edit),
@@ -386,7 +393,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               tooltip: 'Cancel',
             ),
         ],
-      ),
+            )
+          : null,
       body: Stack(
         children: [
           Container(

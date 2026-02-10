@@ -21,7 +21,9 @@ import 'mylist_screen.dart';
 import 'chat_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.showAppBar = true});
+
+  final bool showAppBar;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -163,7 +165,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("My Connect"),),
+      appBar: widget.showAppBar
+          ? AppBar(title: Text("My Connect"),)
+          : null,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
