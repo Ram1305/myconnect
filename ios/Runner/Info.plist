@@ -46,11 +46,17 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<!-- Permission usage descriptions (required for system dialogs to appear) -->
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>My Connect uses your location to show your position on the map and find nearby people.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>My Connect needs camera access to take photos for your profile and posts.</string>
+	<string>We need camera access to take profile photos.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>We need your location to show nearby family members and help you connect with them.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to show nearby family members and help you connect with them.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We need your location to show nearby family members and help you connect with them.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>My Connect needs photo library access to let you choose photos for your profile and posts.</string>
+	<string>We need photo library access to select profile photos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need photo library access to save photos to your gallery.</string>
 </dict>
 </plist>
