@@ -19,16 +19,33 @@ class AppConfig {
   static const int apiTimeout = 30;
   
   // Color Configuration (Historical Burgundy and Maroon color scheme)
-  static const Color primaryColor = Color(0xFF800020); // Burgundy (Historical)
-  static const Color secondaryColor = Color(0xFF800000); // Maroon
-  static const Color backgroundColor = Color(0xFFF5F5F0); // Light cream/beige
-  static const Color mutedGold = Color(0xFFA0522D); // Sienna (complementary)
-  static const Color darkBackground = Color(0xFF2C1A1A); // Dark burgundy tint
-  static const Color lightGold = Color(0xFFE8D5C9); // Light burgundy/cream
+// 🔴 Primary: Icon Red (Main brand color)
+  static const Color primaryColor = Color(0xFFE41E26);
+// Bright, confident red used in the icon
+
+// 🔵 Secondary: Navy Blue from icon symbol
+  static const Color secondaryColor = Color(0xFF0D1B4C);
+// Deep navy for buttons, icons, highlights
+
+// ⚪ Background: Clean white with slight warmth
+  static const Color backgroundColor = Color(0xFFF9FAFC);
+// Keeps UI clean and professional
+
+// 🔴 Accent / Muted Red (for warnings, chips, borders)
+  static const Color mutedGold = Color(0xFFB1121A);
+// Darker red tone instead of gold (fits icon better)
+
+// 🌑 Dark Background (for dark mode / headers)
+  static const Color darkBackground = Color(0xFF121212);
+// Modern dark UI base
+
+// 🔵 Light Secondary (cards, containers, selection)
+  static const Color lightGold = Color(0xFFE8ECF9);
+// Soft navy tint for subtle UI depth
 
   // App Information
-  static const String appName = 'My Connect';
-  static const String appVersion = '1.0.0+3';
+  static const String appName = 'My_Connect';
+  static const String appVersion = '1.0.0+1';
 
   // Admin Contact Information
   static const String adminContactPhone = '+91 9884559988';

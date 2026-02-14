@@ -240,7 +240,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Image.asset(
-                    'assets/logo.png',
+                    'assets/myconnect.png',
                     width: 120,
                     height: 120,
                     fit: BoxFit.contain,
